@@ -1,11 +1,12 @@
 var request = require('supertest');
 
 var app = require('../app').app;
+var server = require('../app.js');
 
 describe('HTTP Server Test', function() {
 	// The function passed to after() is called after running the test cases.
 	after(function() {
-		app.close();
+		server.close();
 	});
 
 	describe('Calculator unit tests', function(){
