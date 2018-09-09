@@ -4,7 +4,7 @@ var app = require('../app').app;
 var server = {};
 
 var app1 = require('express')();
-var router = require('./lib/routers/calcRouter');
+var router = require('../lib/routers/calcRouter');
  
 describe('HTTP Server Test', function() {
 	// The function passed to after() is called after running the test cases.
