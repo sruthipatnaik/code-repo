@@ -70,7 +70,7 @@ pipeline {
 			
 //Pull the image from Docker hub.			
 			docker.withRegistry("https://registry.hub.docker.com", "prince11itc") {
-             docker.image("prince11itc/node-base-img:latest").inside("--net spadelite${env.BUILD_NUMBER} -u root -d --publish 5000:5000") 
+             docker.image("prince11itc/node-base-img:latest").inside("--net spadelite${env.BUILD_NUMBER} -u root -d --publish 6000:6000") 
 			 {
 			  try {
 				
@@ -145,26 +145,7 @@ pipeline {
 			throw e
 			}
 			
-			
-			try {
-			
-  stage('Start the Node App'){
-			 sh """
-			 
-			 #node app.js &
-			 sleep 5
-			 
-			 
-			 """ 
-			 }
-			 } catch (e) {
-			// If there was an exception thrown, the build failed
-			currentBuild.result = "FAILED"
-			notifyFailedBuild('Start the Node App')
-			cleanup()
-			throw e
-			}
-			
+						
 			try {
 			
   stage('Unit testing using mocha'){

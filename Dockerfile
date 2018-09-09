@@ -11,5 +11,5 @@ RUN npm install -g forever
 RUN npm install -g mocha
 RUN npm install supertest --save-dev
 
-EXPOSE 8081
+EXPOSE 6000
 
