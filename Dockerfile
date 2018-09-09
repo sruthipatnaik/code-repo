@@ -9,7 +9,7 @@ RUN npm install -g grunt
 RUN npm install -g express
 RUN npm install -g forever
 RUN npm install -g mocha
-RUN npm install -g supertest
+RUN npm install supertest --save-dev
 
 EXPOSE 5000
 

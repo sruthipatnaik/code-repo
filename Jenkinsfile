@@ -169,7 +169,7 @@ pipeline {
 			
   stage('Unit testing using mocha'){
 			 sh """
-			 npm install -g supertest 
+			 npm install supertest --save-dev
 			 mocha tests/test.js 
 			 
 			 """ 
