@@ -2,7 +2,7 @@ var express = require('express'),
     bodyParser      = require('body-parser'),
     methodOverride  = require('method-override'),
     sessions        = require('./routes/sessions'),
-    router = require('./routers/calcRouter'),
+    router = require('./routes/calcRouter'),
     app = express();
 app.use("/calculator", router);
 app.use(bodyParser.json());
