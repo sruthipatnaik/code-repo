@@ -1,11 +1,24 @@
 var request = require('supertest');
 
 var app = require('../app').app;
-var server = require('../app.js');
+var server = {};
 
+var app1 = require('express')();
+var router = require('./lib/routers/calcRouter');
+ 
 describe('HTTP Server Test', function() {
 	// The function passed to after() is called after running the test cases.
-	after(function() {
+	before(function() {
+	app1.use("/calculator", router);
+	app1.listen(6000);
+	exports.app = app1;	
+	const port = 6000;
+    server = app.listen(port, function() {
+      // console.log('Server is running');
+    });
+  });
+
+  	after(function() {
 		server.close();
 	});
 
