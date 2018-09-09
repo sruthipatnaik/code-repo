@@ -26,7 +26,7 @@ pipeline {
 	try {
 	
   stage('Build image') {
-        app = docker.build("prince11itc/node-base-img:latest")
+        //app = docker.build("prince11itc/node-base-img:latest")
     }
 	} catch (e) {
 			// If there was an exception thrown, the build failed.
@@ -41,10 +41,10 @@ pipeline {
 		//Push the image into Docker hub	
   stage('Push image') {
         
-		docker.withRegistry("https://registry.hub.docker.com", "prince11itc") {
-            app.push("${env.BUILD_NUMBER}")//tag the image with the current build no.
-            app.push("latest") // tag the image with the param tag
-			}
+		//docker.withRegistry("https://registry.hub.docker.com", "prince11itc") {
+         //   app.push("${env.BUILD_NUMBER}")//tag the image with the current build no.
+         //   app.push("latest") // tag the image with the param tag
+			//}
 		}
 		} catch (e) {
 			// If there was an exception thrown, the build failed
@@ -70,7 +70,7 @@ pipeline {
 			
 //Pull the image from Docker hub.			
 			docker.withRegistry("https://registry.hub.docker.com", "prince11itc") {
-             docker.image("prince11itc/node-base-img:latest").inside("--net spadelite${env.BUILD_NUMBER} -u root") 
+             docker.image("prince11itc/node-base-img:latest").inside("--net spadelite${env.BUILD_NUMBER} -u root -d --publish 5000:5000") 
 			 {
 			  try {
 				
@@ -96,7 +96,7 @@ pipeline {
 				
  stage('Build NPM'){
 			 sh """
-			 cd server
+			cd server
 			npm install -g #Build the code using NPM
 			npm install sonarqube-scanner --save-dev #install sonarqube-scanner
 			 """ 
@@ -112,6 +112,7 @@ pipeline {
 			 try {
 			 			 
  stage('Sonar Analysis'){
+	withSonarQubeEnv('sonarqube') {
 			 sh """
 			 cd server
 			 
@@ -122,7 +123,7 @@ pipeline {
 			 serverUrl: "http://ec2-54-156-240-215.compute-1.amazonaws.com:9000/",// Sonar server url param
 			 options : {
 			'sonar.sources': '.',
-			'sonar.projectName': "Node-Project", //Name of the project which will be created in the Sonar server
+			'sonar.projectName': "Node-Mocha-Project", //Name of the project which will be created in the Sonar server
 			}
 			}, () => {});
 			EOF
@@ -131,7 +132,10 @@ pipeline {
 			rm sonar-project.js   #remove the temporary file. 
 			""" 
 			 }
-			 
+			  timeout(time: 1, unit: 'HOURS') {
+                waitForQualityGate abortPipeline: true
+              }
+			 }
 			 } catch (e) {
 			// If there was an exception thrown, the build failed
 			currentBuild.result = "FAILED"
@@ -140,12 +144,16 @@ pipeline {
 			throw e
 			}
 			
+			
 			try {
 			
   stage('Start the Node App'){
 			 sh """
 			  cd server
-			 forever start server.js //start the app
+			 node server.js &
+			 sleep 5
+			 curl http://localhost:5000/sessions
+			 
 			 """ 
 			 }
 			 } catch (e) {
@@ -155,6 +163,24 @@ pipeline {
 			cleanup()
 			throw e
 			}
+			
+			try {
+			
+  stage('Unit testing using mocha'){
+			 sh """
+			  cd server/tests
+			 mocha test.js 
+			 
+			 """ 
+			 }
+			 } catch (e) {
+			// If there was an exception thrown, the build failed
+			currentBuild.result = "FAILED"
+			notifyFailedBuild('Unit testing using mocha')
+			cleanup()
+			throw e
+			}
+			
 			try {		 
   stage('Push artifacts to Artifactory'){
 			sh """
