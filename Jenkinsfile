@@ -151,7 +151,7 @@ pipeline {
   stage('Start the Node App'){
 			 sh """
 			 
-			 //node app.js &
+			 #node app.js &
 			 sleep 5
 			 
 			 
@@ -170,7 +170,7 @@ pipeline {
   stage('Unit testing using mocha'){
 			 sh """
 			 npm install supertest --save-dev
-			 mocha tests/test.js --reporter spec
+			 mocha tests/test.js --reporter spec &
 			 
 			 """ 
 			 }
