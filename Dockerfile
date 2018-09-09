@@ -8,7 +8,7 @@ LABEL maintainer="prince.mathew@itcinfotech.com"
 RUN npm install -g grunt 
 RUN npm install -g express
 RUN npm install -g forever
-npm install -g mocha
+RUN npm install -g mocha
 
 EXPOSE 5000
 
