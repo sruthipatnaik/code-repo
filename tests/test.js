@@ -3,11 +3,6 @@ var request = require('supertest');
 var app = require('../app').app;
 
 describe('HTTP Server Test', function() {
-	// The function passed to before() is called before running the test cases.
-	before(function() {
-		app.listen(6000);
-	});
-
 	// The function passed to after() is called after running the test cases.
 	after(function() {
 		app.close();
