@@ -1,4 +1,3 @@
-import {supertest} from '../test-helper'
 var request = require('supertest');
 
 var app = require('../app').app;
