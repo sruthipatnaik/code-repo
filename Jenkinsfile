@@ -26,7 +26,7 @@ pipeline {
 	try {
 	
   stage('Build image') {
-        //app = docker.build("prince11itc/node-base-img:latest")
+        app = docker.build("prince11itc/node-base-img:latest")
     }
 	} catch (e) {
 			// If there was an exception thrown, the build failed.
@@ -41,10 +41,10 @@ pipeline {
 		//Push the image into Docker hub	
   stage('Push image') {
         
-		//docker.withRegistry("https://registry.hub.docker.com", "prince11itc") {
-         //   app.push("${env.BUILD_NUMBER}")//tag the image with the current build no.
-         //   app.push("latest") // tag the image with the param tag
-			//}
+		docker.withRegistry("https://registry.hub.docker.com", "prince11itc") {
+            app.push("${env.BUILD_NUMBER}")//tag the image with the current build no.
+            app.push("latest") // tag the image with the param tag
+			}
 		}
 		} catch (e) {
 			// If there was an exception thrown, the build failed
