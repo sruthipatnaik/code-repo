@@ -151,7 +151,7 @@ pipeline {
   stage('Start the Node App'){
 			 sh """
 			 
-			 node app.js &
+			 //node app.js &
 			 sleep 5
 			 
 			 
