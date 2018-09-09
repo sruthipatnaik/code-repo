@@ -96,7 +96,7 @@ pipeline {
 				
  stage('Build NPM'){
 			 sh """
-			cd server
+			
 			npm install -g #Build the code using NPM
 			npm install sonarqube-scanner --save-dev #install sonarqube-scanner
 			 """ 
@@ -114,7 +114,7 @@ pipeline {
  stage('Sonar Analysis'){
 	withSonarQubeEnv('sonarqube') {
 			 sh """
-			 cd server
+			 
 			 
 			 #create the temporary .js file to execute the sonar scan.
 			 cat > sonar-project.js <<- "EOF"
@@ -149,10 +149,10 @@ pipeline {
 			
   stage('Start the Node App'){
 			 sh """
-			  cd server
-			 node server.js &
+			 
+			 node app.js &
 			 sleep 5
-			 curl http://localhost:5000/sessions
+			 
 			 
 			 """ 
 			 }
@@ -168,8 +168,8 @@ pipeline {
 			
   stage('Unit testing using mocha'){
 			 sh """
-			  cd server/tests
-			 mocha test.js 
+			  
+			 mocha tests/test.js 
 			 
 			 """ 
 			 }
