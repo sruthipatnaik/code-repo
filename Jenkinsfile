@@ -98,6 +98,7 @@ pipeline {
 			 sh """
 			
 			npm install -g #Build the code using NPM
+			npm install -g supertest
 			npm install sonarqube-scanner --save-dev #install sonarqube-scanner
 			 """ 
 			 }
