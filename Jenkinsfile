@@ -82,7 +82,7 @@ pipeline {
 				  extensions                       : [],
 				  submoduleCfg                     : [],
 				  userRemoteConfigs                : [[credentialsId: "pm11prince",
-				  url          					   : "https://github.com/pm11prince/node-app.git"]]])
+				  url          					   : "https://github.com/pm11prince/code-repo.git"]]])
 			 }
 			} catch (e) {
 			// If there was an exception thrown, the build failed
