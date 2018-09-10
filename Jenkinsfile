@@ -2,7 +2,7 @@
 
 pipeline {
   agent any
-  All parameters which will be used to run the pipeline.
+  //All parameters which will be used to run the pipeline.
   parameters {
 		string(name: 'DOCKERHUB_URL', defaultValue: 'https://registry.hub.docker.com', description: 'Dockerhub Url')
         string(name: 'DOCKERHUB_CREDETIAL_ID', defaultValue: 'prince11itc', description: 'Dockerhub CredentialId')
