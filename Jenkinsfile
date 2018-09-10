@@ -152,6 +152,8 @@ pipeline {
 			 sh """
 			 npm install supertest --save-dev
 			 mocha tests/test.js --reporter spec 
+			 ls 
+			 ls tests
 			 
 			 """ 
 			 }
