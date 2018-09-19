@@ -43,7 +43,7 @@ describe('HTTP Server Test', function() {
 
     it("happy case multiply", function(done){
         request(app)
-            .get("/calculator/mul?first=1.2&second=3.4")
+            .get("/calculator/mul?first=1.1&second=3.4")
             .set('Accept', 'application/json')
             .expect('Content-Type', /json/)
             .expect(200, {result : (1.2 * 3.4)})
