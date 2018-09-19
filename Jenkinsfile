@@ -212,7 +212,7 @@ pipeline {
 		def notifySuccessBuild() {
 		
 		emailext(
-		  to: "gurudatta.karmi@itcinfotech.com", emailextrecipients([[$class: 'DevelopersRecipientProvider'],[$class: 'CulpritsRecipientProvider'],[$class: 'RequesterRecipientProvider']]),,
+		  to: "gurudatta.karmi@itcinfotech.com",
 		  subject: "Build Success: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
 		  body: "This email is to notify that Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' has been completed successfully"
 		)
