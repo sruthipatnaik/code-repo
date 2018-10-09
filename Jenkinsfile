@@ -12,8 +12,7 @@ pipeline {
 		string(name: 'GIT_URL', defaultValue: 'https://github.com/pm11prince/code-repo.git', description: 'Git Url')
 		string(name: 'SONARQUBE_URL', defaultValue: 'http://ec2-54-156-240-215.compute-1.amazonaws.com:9000/', description: 'SonarQube Url')
 		string(name: 'SONARQUBE_PROJECT_NAME', defaultValue: 'Node-Project', description: 'SonarQube Project Name')
-		string(name: 'JFROG_USER_NAME', defaultValue: 'admin', description: 'JFrog repository user name')
-		string(name: 'JFROG_PASSWORD', defaultValue: 'itc11jfrog', description: 'JFrog repository password')
+		string(name: 'JFROG_CREDETIAL_ID', defaultValue: 'itc11jfrog', description: 'JFrog repository password')
 		string(name: 'JFROG_URL', defaultValue: 'http://ec2-34-238-216-133.compute-1.amazonaws.com:8081/artifactory/Test-Repo/', description: 'JFrog repository URL')
 		}
   stages {
@@ -26,7 +25,7 @@ pipeline {
 	try {
 	
   stage('Build image') {
-        //app = docker.build("prince11itc/node-base-img:latest")
+        
 		app = docker.build("${params.DOCKER_IMAGE_NAME}:${params.DOCKER_TAG}")
     }
 	} catch (e) {
@@ -170,7 +169,7 @@ pipeline {
 			touch ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz
 			tar --exclude='./node_modules' --exclude='./.scannerwork' --exclude='./.git' --exclude='./.gitignore' --exclude=${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz -zcvf ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz .
 			"""
-	  		withCredentials([usernamePassword(credentialsId: "${params.JFROG_PASSWORD}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+			withCredentials([usernamePassword(credentialsId: "${params.JFROG_PASSWORD}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
 				 sh """
 				 curl -u "${USERNAME}":"${PASSWORD}" -X PUT "${params.JFROG_URL}" -T "./${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz"
 				 """
@@ -206,7 +205,7 @@ pipeline {
 		def notifyFailedBuild(String stage) {
 		
 		emailext(
-		  to: emailextrecipients([[$class: 'DevelopersRecipientProvider'],[$class: 'CulpritsRecipientProvider'],[$class: 'RequesterRecipientProvider']]),
+		  to: emailextrecipients([[$class: 'DevelopersRecipientProvider'],[$class: 'CulpritsRecipientProvider'],[$class: 'RequesterRecipientProvider']]),,
 		  subject: "Build Failed: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
 		  body: "This email is to notify that Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' has been failed. Failed stage: [${stage}]"
 		)
@@ -216,7 +215,7 @@ pipeline {
 		def notifySuccessBuild() {
 		
 		emailext(
-		  to: emailextrecipients([[$class: 'DevelopersRecipientProvider'],[$class: 'CulpritsRecipientProvider'],[$class: 'RequesterRecipientProvider']]),
+		  to: emailextrecipients([[$class: 'DevelopersRecipientProvider'],[$class: 'CulpritsRecipientProvider'],[$class: 'RequesterRecipientProvider']]),,
 		  subject: "Build Success: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
 		  body: "This email is to notify that Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' has been completed successfully"
 		)
