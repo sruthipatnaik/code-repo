@@ -12,7 +12,7 @@ pipeline {
 		string(name: 'GIT_URL', defaultValue: '', description: 'Git Url')
 		string(name: 'SONARQUBE_URL', defaultValue: '', description: 'SonarQube Url')
 		string(name: 'SONARQUBE_PROJECT_NAME', defaultValue: '', description: 'SonarQube Project Name')
-		string(name: 'JFROG_CREDENTIAL_ID', defaultValue: '', description: 'JFrog repository password')
+		string(name: 'JFROG_CREDETIAL_ID', defaultValue: '', description: 'JFrog repository password')
 		string(name: 'JFROG_URL', defaultValue: '', description: 'JFrog repository URL')
 		}
   stages {
