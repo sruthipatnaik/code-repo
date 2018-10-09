@@ -4,17 +4,17 @@ pipeline {
   agent any
   //All parameters which will be used to run the pipeline.
   parameters {
-		string(name: 'DOCKERHUB_URL', defaultValue: '', description: 'Dockerhub Url')
-        string(name: 'DOCKERHUB_CREDETIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
-		string(name: 'GIT_CREDETIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
-		string(name: 'DOCKER_IMAGE_NAME', defaultValue: '', description: 'Docker Image Name')
-		string(name: 'DOCKER_TAG', defaultValue: '', description: 'Docker Image Tag')
-		string(name: 'GIT_URL', defaultValue: '', description: 'Git Url')
-		string(name: 'SONARQUBE_URL', defaultValue: '', description: 'SonarQube Url')
-		string(name: 'SONARQUBE_PROJECT_NAME', defaultValue: '', description: 'SonarQube Project Name')
-		string(name: 'JFROG_USER_NAME', defaultValue: '', description: 'JFrog repository user name')
-		string(name: 'JFROG_PASSWORD', defaultValue: '', description: 'JFrog repository password')
-		string(name: 'JFROG_URL', defaultValue: '', description: 'JFrog repository URL')
+		string(name: 'DOCKERHUB_URL', defaultValue: 'https://registry.hub.docker.com', description: 'Dockerhub Url')
+        string(name: 'DOCKERHUB_CREDETIAL_ID', defaultValue: 'prince11itc', description: 'Dockerhub CredentialId')
+		string(name: 'GIT_CREDETIAL_ID', defaultValue: 'pm11prince', description: 'Dockerhub CredentialId')
+		string(name: 'DOCKER_IMAGE_NAME', defaultValue: 'prince11itc/node-base-img', description: 'Docker Image Name')
+		string(name: 'DOCKER_TAG', defaultValue: 'latest', description: 'Docker Image Tag')
+		string(name: 'GIT_URL', defaultValue: 'https://github.com/pm11prince/code-repo.git', description: 'Git Url')
+		string(name: 'SONARQUBE_URL', defaultValue: 'http://ec2-54-156-240-215.compute-1.amazonaws.com:9000/', description: 'SonarQube Url')
+		string(name: 'SONARQUBE_PROJECT_NAME', defaultValue: 'Node-Project', description: 'SonarQube Project Name')
+		string(name: 'JFROG_USER_NAME', defaultValue: 'admin', description: 'JFrog repository user name')
+		string(name: 'JFROG_PASSWORD', defaultValue: 'JFrog-Credential-Id', description: 'JFrog repository password')
+		string(name: 'JFROG_URL', defaultValue: 'http://ec2-34-238-216-133.compute-1.amazonaws.com:8081/artifactory/Test-Repo/', description: 'JFrog repository URL')
 		}
   stages {
     stage('Collect the parameters') {
