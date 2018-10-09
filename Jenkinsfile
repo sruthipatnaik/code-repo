@@ -169,8 +169,10 @@ pipeline {
 			sh """
 			touch ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz
 			tar --exclude='./node_modules' --exclude='./.scannerwork' --exclude='./.git' --exclude='./.gitignore' --exclude=${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz -zcvf ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz .
-			curl -u "${params.JFROG_USER_NAME}":"${params.JFROG_PASSWORD}" -X PUT "${params.JFROG_URL}" -T "./${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz"
 			"""
+	  		withCredentials([usernamePassword(credentialsId: 'JFROG_PASSWORD', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+				 sh 'curl -u "${USERNAME}":"${PASSWORD}" -X PUT "${params.JFROG_URL}" -T "./${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz"'
+				}
 			notifySuccessBuild()
 			 
 			 }
