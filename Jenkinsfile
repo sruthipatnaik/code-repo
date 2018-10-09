@@ -169,7 +169,7 @@ pipeline {
 			touch ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz
 			tar --exclude='./node_modules' --exclude='./.scannerwork' --exclude='./.git' --exclude='./.gitignore' --exclude=${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz -zcvf ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz .
 			"""
-			withCredentials([usernamePassword(credentialsId: "${params.JFROG_PASSWORD}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+			withCredentials([usernamePassword(credentialsId: "${params.JFROG_CREDETIAL_ID}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
 				 sh """
 				 curl -u "${USERNAME}":"${PASSWORD}" -X PUT "${params.JFROG_URL}" -T "./${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz"
 				 """
