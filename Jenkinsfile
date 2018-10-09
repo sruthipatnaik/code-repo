@@ -171,7 +171,9 @@ pipeline {
 			tar --exclude='./node_modules' --exclude='./.scannerwork' --exclude='./.git' --exclude='./.gitignore' --exclude=${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz -zcvf ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz .
 			"""
 	  		withCredentials([usernamePassword(credentialsId: 'itc11jfrog', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-				 sh 'curl -u "${USERNAME}":"${PASSWORD}" -X PUT "${params.JFROG_URL}" -T "./${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz"'
+				 sh """
+				 curl -u "${USERNAME}":"${PASSWORD}" -X PUT "${params.JFROG_URL}" -T "./${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz"
+				 """
 				}
 			notifySuccessBuild()
 			 
