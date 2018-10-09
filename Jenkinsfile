@@ -5,14 +5,14 @@ pipeline {
   //All parameters which will be used to run the pipeline.
   parameters {
 		string(name: 'DOCKERHUB_URL', defaultValue: '', description: 'Dockerhub Url')
-        string(name: 'DOCKERHUB_CREDETIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
-		string(name: 'GIT_CREDETIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
+        string(name: 'DOCKERHUB_CREDENTIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
+		string(name: 'GIT_CREDENTIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
 		string(name: 'DOCKER_IMAGE_NAME', defaultValue: '', description: 'Docker Image Name')
 		string(name: 'DOCKER_TAG', defaultValue: '', description: 'Docker Image Tag')
 		string(name: 'GIT_URL', defaultValue: '', description: 'Git Url')
 		string(name: 'SONARQUBE_URL', defaultValue: '', description: 'SonarQube Url')
 		string(name: 'SONARQUBE_PROJECT_NAME', defaultValue: '', description: 'SonarQube Project Name')
-		string(name: 'JFROG_CREDETIAL_ID', defaultValue: '', description: 'JFrog repository password')
+		string(name: 'JFROG_CREDENTIAL_ID', defaultValue: '', description: 'JFrog repository password')
 		string(name: 'JFROG_URL', defaultValue: '', description: 'JFrog repository URL')
 		}
   stages {
@@ -41,7 +41,7 @@ pipeline {
 		//Push the image into Docker hub	
   stage('Push image') {
         
-		docker.withRegistry("${params.DOCKERHUB_URL}", "${params.DOCKERHUB_CREDETIAL_ID}") {
+		docker.withRegistry("${params.DOCKERHUB_URL}", "${params.DOCKERHUB_CREDENTIAL_ID}") {
             app.push("${env.BUILD_NUMBER}")//tag the image with the current build no.
             app.push("${params.DOCKER_TAG}") // tag the image with the param tag
 			}
@@ -69,7 +69,7 @@ pipeline {
 			}
 			
 //Pull the image from Docker hub.			
-			docker.withRegistry("${params.DOCKERHUB_URL}", "${params.DOCKERHUB_CREDETIAL_ID}") {
+			docker.withRegistry("${params.DOCKERHUB_URL}", "${params.DOCKERHUB_CREDENTIAL_ID}") {
              docker.image("${params.DOCKER_IMAGE_NAME}:${params.DOCKER_TAG}").inside("--net spadelite${env.BUILD_NUMBER} -u root -d --publish 6000:6000") 
 			 {
 			  try {
@@ -81,7 +81,7 @@ pipeline {
 				  doGenerateSubmoduleConfigurations: false,
 				  extensions                       : [],
 				  submoduleCfg                     : [],
-				  userRemoteConfigs                : [[credentialsId: "${params.GIT_CREDETIAL_ID}",
+				  userRemoteConfigs                : [[credentialsId: "${params.GIT_CREDENTIAL_ID}",
 				  url          					   : "${params.GIT_URL}"]]])
 			 }
 			} catch (e) {
@@ -169,7 +169,7 @@ pipeline {
 			touch ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz
 			tar --exclude='./node_modules' --exclude='./.scannerwork' --exclude='./.git' --exclude='./.gitignore' --exclude=${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz -zcvf ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz .
 			"""
-			withCredentials([usernamePassword(credentialsId: "${params.JFROG_CREDETIAL_ID}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+			withCredentials([usernamePassword(credentialsId: "${params.JFROG_CREDENTIAL_ID}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
 				 sh """
 				 curl -u "${USERNAME}":"${PASSWORD}" -X PUT "${params.JFROG_URL}" -T "./${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz"
 				 """
