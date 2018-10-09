@@ -205,7 +205,7 @@ pipeline {
 		def notifyFailedBuild(String stage) {
 		
 		emailext(
-		  to: "'prince.mathew@itcinfotech.com'",
+		  to: 'prince.mathew@itcinfotech.com',
 		  subject: "Build Failed: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
 		  body: "This email is to notify that Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' has been failed. Failed stage: [${stage}]"
 		)
