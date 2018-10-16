@@ -20,7 +20,7 @@ pipeline {
 	
 	
   stage('Build image') {
-  
+        echo "Dockerhub Url : $params.DOCKERHUB_URL"
   steps { 
   script {
   
