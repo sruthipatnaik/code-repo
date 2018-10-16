@@ -22,6 +22,15 @@ pipeline {
   stage('Build image') {
   steps {
 	  echo "Dockerhub Url : $params.DOCKERHUB_URL"
+	  echo "Dockerhub CredentialId : $params.DOCKERHUB_CREDETIAL_ID"
+	  echo "Docker Image Name : $params.DOCKER_IMAGE_NAME"
+	  echo "Docker Image Tag : $params.DOCKER_TAG"
+	  echo "Git Url : $params.GIT_URL"
+	  echo "Git CredentialId : $params.GIT_CREDETIAL_ID"
+	  echo "SonarQube Url : $params.SONARQUBE_URL"
+	  echo "SonarQube Project Name : $params.SONARQUBE_PROJECT_NAME"
+	  echo "JFrog repository URL : $params.JFROG_URL"
+	  echo "JFrog repository CredentialId : $params.JFROG_CREDENTIAL_ID"
   script {
   
   try {
