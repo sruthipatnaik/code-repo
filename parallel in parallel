@@ -1,0 +1,70 @@
+node{
+stage('Build') {
+    echo "Build stage"
+}
+
+stage('Test') {
+    parallel linuxG: {
+        stage('linux') {
+            
+             parallel new: {
+				 stage('new stg') {
+				 echo "stage 1 in parallel 1 parallel 1"
+				 }
+				 stage('new stg 1') {
+				 echo "stage 2 in parallel 1 parallel 1"
+				 }
+				 stage('new stg 2') {
+				 echo "stage 3 in parallel 1 parallel 1"
+				 }
+            },
+			old : {
+			 stage('old stg') {
+			 echo "stage 1 in parallel 1 parallel 2"
+			 }
+			 stage('old stg 1') {
+			 echo "stage 2 in parallel 1 parallel 2"
+			 }
+			 stage('old stg 2') {
+			 echo "stage 3 in parallel 1 parallel 2"
+			 }
+            }
+        }
+		
+		
+    },
+	windowsG: {
+        stage('windows') {
+            
+             parallel new1 : {
+				 stage('windows new stg') {
+				 echo "stage 1 in parallel 2 parallel 1"
+				 }
+				 stage('windows new stg 1') {
+				 echo "stage 2 in parallel 2 parallel 1"
+				 }
+				 stage('windows new stg 2') {
+				 echo "stage 3 in parallel 2 parallel 1"
+				 }
+            },
+			old1 : {
+			 stage('windows old stg') {
+			 echo "stage 1 in parallel 2 parallel 2"
+			 }
+			 stage('windows old stg 1') {
+			 echo "stage 2 in parallel 2 parallel 2"
+			 }
+			 stage('windows old stg 2') {
+			 echo "stage 3 in parallel 2 parallel 2"
+			 }
+            }
+        }
+		
+		
+    }
+}
+
+stage('deploy') {
+    echo "deploy stage"
+}
+}
