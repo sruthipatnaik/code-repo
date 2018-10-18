@@ -1,0 +1,48 @@
+node{
+	stage('Build') {
+
+		echo "Build stage"
+
+		stage('Build stage 1') {
+			echo "Build stage 2 in parallel 1 parallel 1"
+		}
+		stage('Build stage2') {
+			echo "Build stage 3 in parallel 1 parallel 1"
+		}
+		
+	}
+
+	stage('Test') {
+		parallel linux: {
+				stage('linux stages') {
+					 stage('linux stage 1') {
+						echo "linux stage 1 in parallel 1 parallel 1"
+					 }
+					 stage('linux stage 2') {
+						echo "linux stage 2 in parallel 1 parallel 1"
+					 }
+					 stage('linux stage 3') {
+						echo "linux stage 3 in parallel 1 parallel 1"
+					 }
+				}			
+		},
+		windows: {
+			stage('windows old stg') {
+				echo "windows stage 1 in parallel 1 parallel 1"
+			}
+			stage('windows old stg 1') {
+				echo "windows stage 2 in parallel 2 parallel 2"
+			}	
+			stage('windows old stg 3') {
+				echo "windows stage 3 in parallel 3 parallel 3"
+			}	
+			stage('windows old stg 4') {
+				echo "windows stage 4 in parallel 4 parallel 4"
+			}				
+		}
+	}
+
+	stage('deploy') {
+		echo "deploy stage"
+	}
+}
