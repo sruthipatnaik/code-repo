@@ -6,7 +6,7 @@ pipeline {
   parameters {
 		string(name: 'DOCKERHUB_URL', defaultValue: '', description: 'Dockerhub Url')
         string(name: 'DOCKERHUB_CREDETIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
-		string(name: 'GIT_CREDETIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
+		string(name: 'GIT_CREDETIAL_ID', defaultValue: '', description: 'GIT CredentialId')
 		string(name: 'DOCKER_IMAGE_NAME', defaultValue: '', description: 'Docker Image Name')
 		string(name: 'DOCKER_TAG', defaultValue: '', description: 'Docker Image Tag')
 		string(name: 'GIT_URL', defaultValue: '', description: 'Git Url')
@@ -20,7 +20,7 @@ pipeline {
 		string(name: 'EMAIL_LIST', defaultValue: '', description: 'Email distribution list')
 		string(name: 'CALLED_BY', defaultValue: '', description: 'Called by')
         string(name: 'URL', defaultValue: '',description: 'Callback URL')
-
+		string(name: 'ZICOS_CREDENTIAL_ID', defaultValue: '')
 		}
   stages {
 	
@@ -30,10 +30,16 @@ pipeline {
 			return params.CALLED_BY != 'ZICOS';
 		}
             }
-            steps {
-                sh "curl -X GET ${params.URL}/pipeline/execution?url=${JENKINS_URL}&jobName=${JOB_NAME}"
-            }
-        }
+			steps { 
+            script{
+                    withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${params.ZICOS_CREDENTIAL_ID}",
+                    usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]) {
+                        def url = "${JENKINS_URL}".substring(0, "${JENKINS_URL}".length() - 1)
+                        sh "curl --user $USERNAME:$PASSWORD -X GET ${params.URL}/pipeline/execution?url=${url}'&'jobName=${JOB_NAME}"
+					}
+			}
+		}
+	}
 
   stage('Build & push image') {
   
