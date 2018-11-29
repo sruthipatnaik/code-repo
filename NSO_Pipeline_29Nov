@@ -1,0 +1,459 @@
+#!/usr/bin/env groovy
+
+node {
+
+			def app
+			
+			properties([
+			 parameters([
+				stringParam(name: 'DOCKERHUB_URL', defaultValue: '', description: 'Dockerhub Url'),
+				stringParam(name: 'DOCKERHUB_CREDENTIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId'),
+				stringParam(name: 'GIT_CREDENTIAL_ID', defaultValue: '', description: 'GIT CredentialId'),
+				stringParam(name: 'DOCKER_IMAGE_NAME', defaultValue: '', description: 'Docker Image Name'),
+				stringParam(name: 'DOCKER_TAG', defaultValue: '', description: 'Docker Image Tag'),
+				stringParam(name: 'GIT_URL', defaultValue: '', description: 'Git Url'),
+				stringParam(name: 'SONARQUBE_URL', defaultValue: '', description: 'SonarQube Url'),
+				stringParam(name: 'SONARQUBE_PROJECT_NAME', defaultValue: '', description: 'SonarQube Project Name'),
+				stringParam(name: 'JFROG_CREDENTIAL_ID', defaultValue: '', description: 'JFrog repository password'),
+				stringParam(name: 'JFROG_URL', defaultValue: '', description: 'JFrog repository URL'),
+				stringParam(name: 'SLACK_API_URL', defaultValue: '', description: 'Slack API URL'),
+				stringParam(name: 'SLACK_TOKEN', defaultValue: '', description: 'Slack token'),
+				stringParam(name: 'SLACK_CHANNEL_NAME', defaultValue: '', description: 'Slack channel name'),
+				stringParam(name: 'EMAIL_LIST', defaultValue: '', description: 'Email distribution list'),
+				stringParam(name: 'CALLED_BY', defaultValue: 'ZICOS', description: 'Called by'),
+				stringParam(name: 'URL', defaultValue: '',description: 'Callback URL'),
+				stringParam(name: 'ZICOS_CREDENTIAL_ID', defaultValue: '',description: 'Zicos CredentialId')
+			 ])
+		   ])
+				
+				try {
+		if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Started: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].")
+					}
+			stage('ZICOS-Initialization'){
+					
+					if (params.CALLED_BY != 'ZICOS')
+					{
+						withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${param.ZICOS_CREDENTIAL_ID}",
+							usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]) {
+								def url = "${JENKINS_URL}".substring(0, "${JENKINS_URL}".length() - 1)
+								sh "curl --user $USERNAME:$PASSWORD -X GET ${params.URL}/pipeline/execution?url=${url}'&'jobName=${JOB_NAME}"
+							}
+					}
+				}
+				} catch (e) {
+					// If there was an exception thrown, the build failed.
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [ZICOS-Initialization]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('ZICOS-Initialization')
+					}
+					cleanup()
+					throw e
+					}
+					
+				try {
+		 stage('Create Bridge') {
+					sh """
+					docker network create --driver bridge spadelite${env.BUILD_NUMBER}
+					"""
+					}
+				} catch (e) {
+					// If there was an exception thrown, the build failed
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Create Bridge]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('Create Bridge')
+					}
+					cleanup()
+					throw e
+					}
+			try{		
+					stage('NSO Container Creation'){
+					sh """
+					docker run -dit --net spadelite${env.BUILD_NUMBER} --name spadelite_container_${env.BUILD_NUMBER} "${params.DOCKER_IMAGE_NAME}:${params.DOCKER_TAG}"
+					"""
+					}
+					}catch(e) {
+					// If there was an exception thrown, the build failed
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [NSO Container Creation]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('NSO Container Creation')
+					}
+					cleanup()
+					throw e
+					}
+			try {
+						
+			 stage('NSO NED & Project Installation'){
+				stage('NSO NED Installation') {
+				
+				def ret =
+						sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && cd /home/cisco/ncs-4.7/examples.ncs/getting-started/using-ncs/1-simulated-cisco-ios && ncs-netsim create-network /home/cisco/ncs-4.7/packages/neds/cisco-ios 3 c && ncs-setup --netsim-dir ./netsim --dest .\"; echo \$?",
+												returnStdout: true).trim()
+				ret =
+						sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && cd /home/cisco/ncs-4.7/examples.ncs/getting-started/using-ncs/1-simulated-cisco-ios && ncs && ncs --status\"; echo \$?",
+												returnStdout: true).trim()
+				
+				ret =
+						sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && echo 'show packages' | ncs_cli -u admin -C\"; echo \$?",
+												returnStdout: true).trim()
+				// Force NCS Package Reload
+				ret =
+					sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && echo 'package reload' | ncs_cli -u admin -C\"; echo \$?",
+							returnStdout: true).trim()
+				
+				 // Compile the NED 
+				ret =
+					sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && cd /home/cisco/ncs-4.7/examples.ncs/getting-started/using-ncs/1-simulated-cisco-ios/packages/cisco-ios/src && make clean all \"; echo \$?",
+							returnStdout: true).trim()
+				// Reload packages & Show packages
+				ret =
+						sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && echo 'packages reload' | ncs_cli -u admin -C && echo 'show packages' | ncs_cli -u admin -C\"; echo \$?",
+												returnStdout: true).trim()
+				
+					}
+					
+					stage('NSO Project Installation') {
+					echo "NSO Project Installation"
+					}
+					 }
+					} catch (e) {
+					// If there was an exception thrown, the build failed
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [NSO NED & Project Installation]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('NSO NED & Project Installation')
+					}
+					cleanup()
+					throw e
+					}
+					
+			try {	
+					stage('NCS Load '){
+					 //#### NCS Load xml configuration data
+				 ncsLoad()  
+				  def ret =
+				   sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && echo '\''devices sync-from'\'' | ncs_cli -u admin -C\"; echo \$?",
+				   returnStdout: true).trim()
+				   
+				}
+					 } catch (e) {
+					// If there was an exception thrown, the build failed
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [NCS Load]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('NCS Load')
+					}
+					cleanup()
+					throw e
+					}
+					 
+					 try {
+						
+		  stage('NetSim setup') {
+					 def ret =
+						sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && cd /home/cisco/ncs-4.7/examples.ncs/getting-started/using-ncs/1-simulated-cisco-ios && ncs-netsim add-to-network /home/cisco/ncs-4.7/packages/neds/cisco-ios 3 c && ncs-setup --netsim-dir ./netsim --dest .\"; echo \$?",
+												returnStdout: true).trim() 
+					 }
+					 } catch (e) {
+					// If there was an exception thrown, the build failed
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [NetSim setup]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('NetSim setup')
+					}
+					cleanup()
+					throw e
+					}
+					 
+			try {
+								 
+				 stage('Package Installation & Compilation') {
+					sh """
+					docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && cd /home/cisco/ncs-4.7/packages && ncs-make-package --service-skeleton template simple-test && rm simple-test/templates/simple-test-template.xml && rm /home/cisco/ncs-4.7/packages/simple-test/src/yang/simple-test.yang &"
+					"""
+					ncsPackage()
+					
+					sh """
+					docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && cp /tmp/simple-test.yang /home/cisco/ncs-4.7/packages/simple-test/src/yang/ && cd /home/cisco/ncs-4.7/packages/simple-test/src && make clean all &"
+					"""
+					
+					def nsoPackages =
+										sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && echo 'packages reload' | ncs_cli -C -u admin\"; echo \$?",
+												returnStdout: true).trim()
+								echo "NSO Packages - Reload\n${nsoPackages}"
+					 }
+					 } catch (e) {
+					// If there was an exception thrown, the build failed
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [NSO Customer Service Package Installation & Compilation]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('NSO Customer Service Package Installation & Compilation')
+					}
+					cleanup()
+					throw e
+					}
+					
+								
+			try {
+					
+				stage('Device Configuration'){ 
+					// docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && cd /home/cisco/ncs-4.7/packages && echo 'devices sync-from' | && ncs_cli -u admin -C &"
+					sh """
+					echo "Device Configuration based on file from the REPO"
+					""" 
+					 }
+					 } catch (e) {
+					// If there was an exception thrown, the build failed
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Device Configuration]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('Device Configuration')
+					}
+					cleanup()
+					throw e
+					}
+					
+			try {		 
+				stage('Rasta & Sonar analysis'){
+					parallel Rasta: {
+					stage ('RASTA Container Creation '){
+					echo "Robot Testing"
+					sh """
+					 docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"cd /home/cisco/tests && robot robot-port-test.robot"
+					  docker cp spadelite_container_${env.BUILD_NUMBER}:/home/cisco/tests/report.html .
+					 """ 
+					}
+					},
+					Sonar: {
+					 stage ('Quality Metrics - Sonar'){
+					echo "Sonar analysis"
+					}
+					 }
+					 
+					 } 
+					 }catch (e) {
+					// If there was an exception thrown, the build failed
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Rasta & Sonar analysis]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('Rasta & Sonar analysis')
+					}
+					cleanup()
+					throw e
+					} 
+					
+			try {	
+				stage('Email Test Results') {
+					echo "Email Test Results"
+						emailext attachmentsPattern: 'report.html', 
+											   body: 'Robot test report attached', 
+											   subject: 'Robot test report', 
+											   to: "${params.EMAIL_LIST}"
+					}
+				}catch (e) {
+					// If there was an exception thrown, the build failed
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Email Test Results]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('Email Test Results')
+					}
+					cleanup()
+					throw e
+					}
+					
+			try {
+				stage('Publish Release') {
+						
+					ret =
+							sh(script: "docker exec -i  spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"tar -cvf /home/cisco/ncs-4.7/packages/simple-test.tar /home/cisco/ncs-4.7/packages/simple-test/ \"; echo \$?",
+								   returnStdout: true).trim()
+					ret =
+							sh(script: "docker cp  spadelite_container_${env.BUILD_NUMBER}:/home/cisco/ncs-4.7/packages/simple-test.tar ${WORKSPACE} ; echo \$?",
+								   returnStdout: true).trim()	
+						
+					withCredentials([usernamePassword(credentialsId: "${params.JFROG_CREDENTIAL_ID}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+						 sh """
+						 curl -u "${USERNAME}":"${PASSWORD}" -X PUT "${params.JFROG_URL}" -T "./simple-test.tar"
+						 """
+						}
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Success: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifySuccessBuild()
+					}
+					
+						}
+						} catch (e) {
+					// If there was an exception thrown, the build failed
+					currentBuild.result = "FAILED"
+					if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+					{
+					notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Publish Release]")
+					}
+					if (params.EMAIL_LIST?.trim())
+					{
+					notifyFailedBuild('Publish Release')
+					}
+					cleanup()
+					throw e
+					} 
+				  }
+				 
+		  // function to handle the Slack notification.
+		  def notifySlack(String slackUrl,String slackChannel,String slackToken,String message) {
+				sh """
+				curl -X POST -H 'Authorization: Bearer ${slackToken}' \
+				-H 'Content-type: application/json' \
+				--data '{"username":"ZICOS","channel":"${slackChannel}","text": "${message}"}' \
+				${slackUrl}
+				"""
+				}
+				
+		// function to handle the failed build notification.
+				def notifyFailedBuild(String stage) {
+				
+				emailext(
+				  to: "${params.EMAIL_LIST}",
+				  subject: "Build Failed: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+				  body: "This email is to notify that Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' has been failed. Failed stage: [${stage}]"
+				)
+				}
+				
+		// function to handle successful build notification.
+				def notifySuccessBuild() {
+				
+				emailext(
+				  to: "${params.EMAIL_LIST}",
+				  subject: "Build Success: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+				  body: "This email is to notify that Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' has been completed successfully"
+				)
+				}
+
+		//function to clean docker container, volumes and network		
+				def cleanup() {
+				//cleanWs() //cleanup workspace
+				sh """
+				docker ps -q -f status=exited | xargs --no-run-if-empty docker rm
+				docker images -q -f dangling=true | xargs --no-run-if-empty docker rmi
+				docker stop spadelite_container_${env.BUILD_NUMBER}
+				docker rm spadelite_container_${env.BUILD_NUMBER}
+				docker volume ls -qf dangling=true | xargs -r docker volume rm
+				docker network rm spadelite${env.BUILD_NUMBER}
+				docker network prune --force
+				"""
+				}
+				
+		//function to load device xml		
+				def ncsLoad(){
+					 
+				def fileText = '<devices xmlns="http://tail-f.com/ns/ncs">'+
+										'<authgroups>'+
+											'<group>'+
+												'<name>default</name>'+
+												'<umap>'+
+													'<local-user>admin</local-user>'+
+													'<remote-name>admin</remote-name>'+
+													'<remote-password>admin</remote-password>'+
+												'</umap>'+
+												'<umap>'+
+													'<local-user>oper</local-user>'+
+													'<remote-name>oper</remote-name>'+
+													'<remote-password>admin</remote-password>'+
+												'</umap>'+
+										'</group>'+
+									  '</authgroups>'+
+									'</devices>'
+				def ws = pwd(tmp: true)
+					def tmpFilename = "ncsLoadFile_spadelite_container_${env.BUILD_NUMBER}.dat"
+					dir (ws) {
+						echo "ncsLoad --> Loading inline data using temporary file: ${tmpFilename}"
+						echo "file data: ${fileText}"
+						writeFile file:"${tmpFilename}", text:"${fileText}"
+						copyFileHost2Container("ncsLoadFile_spadelite_container_${env.BUILD_NUMBER}.dat", "spadelite_container_${env.BUILD_NUMBER}")
+						def ret =
+								sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && ncs_load -l -m -u admin /tmp/${tmpFilename}\"; echo \$?",
+
+										returnStdout: true).trim()
+					}
+				}
+		
+		//function to packages		
+		def ncsPackage(){
+					 
+				def fileText = 'module simple-test {'+
+										'namespace "http://com/example/simpletest";'+
+											'prefix simple-test;'+
+												'container tab_around_this {'+
+												'leaf a-text-input'+
+													'{'+
+													'type string;'+
+													'}'+
+												'}'+
+												'}'
+				def ws = pwd(tmp: true)
+					def tmpFilename = "simple-test.yang"
+					dir (ws) {
+						echo "ncsPackage --> Loading inline data using temporary file: ${tmpFilename}"
+						echo "file data: ${fileText}"
+						writeFile file:"${tmpFilename}", text:"${fileText}"
+						copyFileHost2Container("${tmpFilename}", "spadelite_container_${env.BUILD_NUMBER}")
+						def ret =
+								sh(script: "docker exec -i spadelite_container_${env.BUILD_NUMBER} /bin/bash -c \"source /home/cisco/ncs/ncsrc && cp /tmp/simple-test.yang /home/cisco/ncs-4.7/packages/simple-test/src/yang/ && cd /home/cisco/ncs-4.7/packages/simple-test/src && make clean all \"; echo \$?",
+
+										returnStdout: true).trim()
+					}
+				}
+				
+		// Copies a file from the Host e.g. a Jenkins slave into a running Docker Container
+			def copyFileHost2Container(final String fileName, final String containerId) {
+				def ret =
+						sh(script: "docker cp ${fileName} ${containerId}:/tmp/ ; echo \$?",
+								returnStdout: true).trim()
+			}
