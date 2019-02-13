@@ -6,21 +6,7 @@ pipeline {
   parameters {
 		string(name: 'DOCKERHUB_URL', defaultValue: 'http://url.in', description: 'Dockerhub Url')
         string(name: 'DOCKERHUB_CREDETIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
-		string(name: 'GIT_CREDETIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
-		string(name: 'DOCKER_IMAGE_NAME', defaultValue: '', description: 'Docker Image Name')
-		string(name: 'DOCKER_TAG', defaultValue: '', description: 'Docker Image Tag')
-		string(name: 'GIT_URL', defaultValue: '', description: 'Git Url')
-		string(name: 'SONARQUBE_URL', defaultValue: '', description: 'SonarQube Url')
-		string(name: 'SONARQUBE_PROJECT_NAME', defaultValue: '', description: 'SonarQube Project Name')
-		string(name: 'JFROG_CREDENTIAL_ID', defaultValue: '', description: 'JFrog repository CredentialId')
-		string(name: 'JFROG_URL', defaultValue: '', description: 'JFrog repository URL')
-		string(name: 'SLACK_API_URL', defaultValue: '', description: 'Slack API URL')
-		string(name: 'SLACK_TOKEN', defaultValue: '', description: 'Slack token')
-		string(name: 'SLACK_CHANNEL_NAME', defaultValue: '', description: 'Slack channel name')
-		string(name: 'EMAIL_LIST', defaultValue: '', description: 'Email distribution list')
-		string(name: 'CALLED_BY', defaultValue: '', description: 'Called by')
-        string(name: 'URL', defaultValue: '',description: 'Callback URL')
-
+		
 		}
   stages {
 	
