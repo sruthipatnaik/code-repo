@@ -6,7 +6,8 @@ pipeline {
   parameters {
 		string(name: 'DOCKERHUB_URL', defaultValue: 'http://url.in', description: 'Dockerhub Url')
         string(name: 'DOCKERHUB_CREDETIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
-		
+		string(name: 'GIT_CREDETIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId')
+		string(name: 'DOCKER_IMAGE_NAME', defaultValue: '', description: 'Docker Image Name')
 		}
   stages {
 	
