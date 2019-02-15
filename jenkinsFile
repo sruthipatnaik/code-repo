@@ -10,8 +10,7 @@ node {
         stringParam(name: 'DOCKERHUB_CREDENTIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId'),
 		stringParam(name: 'GIT_CREDENTIAL_ID', defaultValue: '', description: 'GIT CredentialId'),
 		stringParam(name: 'DOCKER_IMAGE_NAME', defaultValue: '', description: 'Docker Image Name'),
-		
-     ])
+		     ])
    ])
 	try {
 if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
