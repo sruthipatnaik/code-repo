@@ -1,0 +1,96 @@
+	pipeline {
+		agent any
+		parameters {
+			string(name: 'DOCKERHUB_URL', defaultValue: 'https://registry.hub.docker.com', description: 'Dockerhub Url')
+			string(name: 'DOCKERHUB_CREDETIAL_ID', defaultValue: 'prince11itc', description: 'Dockerhub CredentialId')
+			string(name: 'GIT_CREDETIAL_ID', defaultValue: 'pm11prince', description: 'GIT CredentialId')
+			string(name: 'DOCKER_IMAGE_NAME', defaultValue: 'prince11itc/sonar-runner', description: 'Docker Image Name')
+			string(name: 'DOCKER_TAG', defaultValue: '1.0', description: 'Docker Image Tag')
+			string(name: 'GIT_URL', defaultValue: 'https://github.com/pm11prince/SampleJavaProject.git', description: 'Git Url')
+			string(name: 'URL', defaultValue: 'http://18.223.225.117:1001/data',description: 'Callback API URL')
+			string(name: 'ZICOS_CREDENTIAL_ID', defaultValue: '')
+			string(name: 'PIPELINE_ID', defaultValue: '101')
+			}
+		stages {
+		stage('Create Network') {
+	 
+		 steps { 
+		 script {
+		 			sh """
+					docker network create --driver bridge sonar-scan-network${env.BUILD_NUMBER}
+					"""
+					
+					}
+					}
+				
+				}
+			stage('Sonarqube & Sonar Runner Container Creation') {
+				
+				steps {
+				script {
+				    checkout(	[$class                          : 'GitSCM',
+					  branches                         : [[name: '*/master']],
+					  doGenerateSubmoduleConfigurations: false,
+					  extensions                       : [],
+					  submoduleCfg                     : [],
+					  userRemoteConfigs                : [[credentialsId: "${params.GIT_CREDETIAL_ID}",
+					  url          					   : "${params.GIT_URL}"]]])
+				sh """
+					docker pull sonarqube:6.5
+					docker run -dit --name sonarqube${env.BUILD_NUMBER} --network sonar-scan-network${env.BUILD_NUMBER} sonarqube:6.5
+					docker pull "${params.DOCKER_IMAGE_NAME}":"${params.DOCKER_TAG}" 
+				    docker run -dit -v ${workspace}/:/root/src --name sonar-runner${env.BUILD_NUMBER} --network sonar-scan-network${env.BUILD_NUMBER} --link sonarqube${env.BUILD_NUMBER}:sonarqube${env.BUILD_NUMBER} "${params.DOCKER_IMAGE_NAME}":"${params.DOCKER_TAG}"  
+				    sleep 30
+				"""
+					
+				}
+				}
+			}
+			stage('Sonar Runner Execution') {
+				
+				steps {
+				script {
+				
+				def ret = sh(script: "docker exec -i sonar-runner${env.BUILD_NUMBER} /bin/bash -c \"sonar-runner -Dsonar.host.url=http://sonarqube${env.BUILD_NUMBER}:9000 -Dsonar.login=\"admin\" -Dsonar.password=\"admin\" -Dsonar.projectKey=FB1 -Dsonar.projectName=\"FeatureBranch\" -Dsonar.projectVersion=1 -Dsonar.projectBaseDir=/root/src -Dsonar.sources=. \"; echo \$?",
+								returnStdout: true).trim()
+					sh "sleep 10";
+					
+					def	issues = sh(script: "docker exec -i sonar-runner${env.BUILD_NUMBER} /bin/bash -c \"curl -H 'Content-Type: application/json' 'http://sonarqube${env.BUILD_NUMBER}:9000/api/issues/search?componentRoots=FB1' \"; echo \$?",
+					            returnStdout: true).trim()
+					
+					def metrics = sh(script: "docker exec -i sonar-runner${env.BUILD_NUMBER} /bin/bash -c \"curl -H 'Content-Type: application/json' 'http://sonarqube${env.BUILD_NUMBER}:9000/api/measures/search_history?component=FB1&metrics=function_complexity,class_complexity,file_complexity,complexity,classes,ncloc,coverage,tests,sqale_index,directories,files,functions,accessors,statements,comment_lines,violations,blocker_violations,critical_violations,major_violations,info_violations,minor_violations,duplicated_lines_density,duplicated_lines,duplicated_blocks,duplicated_files,sqale_rating,sqale_debt_ratio,commented_out_code_lines'  \"; echo \$?", 
+					            returnStdout: true).trim()
+					
+					def	status = sh(script: "docker exec -i sonar-runner${env.BUILD_NUMBER} /bin/bash -c \"curl -H 'Content-Type: application/json' 'http://sonarqube${env.BUILD_NUMBER}:9000/api/qualitygates/project_status?projectKey=FB1' \"; echo \$?", 
+					            returnStdout: true).trim()
+					
+					
+					
+					ret = sh(script: "docker exec -i sonar-runner${env.BUILD_NUMBER} /bin/bash -c \"curl -d '{\"issues\":\"'$issues'\", \"metrics\":\"'$metrics'\",\"status\":\"'$status'\", \"pipeline-id\":\"'${params.PIPELINE_ID}'\" }' -H 'Content-Type: application/json' -X POST  ${params.URL} \"; echo \$?", 
+					            returnStdout: true).trim()		
+					            
+					
+									
+				}
+				}
+			}
+			
+		}
+		post {
+			always {
+			sh"""
+			docker stop sonarqube${env.BUILD_NUMBER}
+			docker stop sonar-runner${env.BUILD_NUMBER}
+			docker rm sonarqube${env.BUILD_NUMBER} sonar-runner${env.BUILD_NUMBER}
+			docker ps -q -f status=exited | xargs --no-run-if-empty docker rm
+			docker images -q -f dangling=true | xargs --no-run-if-empty docker rmi
+			docker volume ls -qf dangling=true | xargs -r docker volume rm
+			docker network rm sonar-scan-network${env.BUILD_NUMBER}
+			docker network prune --force
+			
+			"""
+			}
+			
+		}
+	}
+	
