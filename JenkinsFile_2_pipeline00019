@@ -1,0 +1,17 @@
+#!/usr/bin/env groovy
+def app
+pipeline {
+    agent any 
+    stages {
+        stage('Stage 3') {
+            steps {
+                echo 'Hello world!' 
+            }
+        }
+        stage('Stage 4') {
+            steps {
+                echo 'Hiiiii!!!!!!' 
+            } 
+        }
+    }
+}
