@@ -1,0 +1,338 @@
+#!/usr/bin/env groovy
+
+node {
+
+    def app
+	
+	properties([
+     parameters([
+	    stringParam(name: 'DOCKERHUB_URL', defaultValue: '', description: 'Dockerhub Url'),
+        stringParam(name: 'DOCKERHUB_CREDENTIAL_ID', defaultValue: '', description: 'Dockerhub CredentialId'),
+		stringParam(name: 'GIT_CREDENTIAL_ID', defaultValue: '', description: 'GIT CredentialId'),
+		stringParam(name: 'DOCKER_IMAGE_NAME', defaultValue: '', description: 'Docker Image Name'),
+		stringParam(name: 'DOCKER_TAG', defaultValue: '', description: 'Docker Image Tag'),
+		stringParam(name: 'GIT_URL', defaultValue: '', description: 'Git Url'),
+		stringParam(name: 'SONARQUBE_URL', defaultValue: '', description: 'SonarQube Url'),
+		stringParam(name: 'SONARQUBE_PROJECT_NAME', defaultValue: '', description: 'SonarQube Project Name'),
+		stringParam(name: 'JFROG_CREDENTIAL_ID', defaultValue: '', description: 'JFrog repository password'),
+		stringParam(name: 'JFROG_URL', defaultValue: '', description: 'JFrog repository URL'),
+		stringParam(name: 'SLACK_API_URL', defaultValue: '', description: 'Slack API URL'),
+		stringParam(name: 'SLACK_TOKEN', defaultValue: '', description: 'Slack token'),
+		stringParam(name: 'SLACK_CHANNEL_NAME', defaultValue: '', description: 'Slack channel name'),
+		stringParam(name: 'EMAIL_LIST', defaultValue: '', description: 'Email distribution list'),
+		stringParam(name: 'CALLED_BY', defaultValue: '', description: 'Called by'),
+        stringParam(name: 'URL', defaultValue: '',description: 'Callback URL'),
+		stringParam(name: 'ZICOS_CREDENTIAL_ID', defaultValue: '',description: 'Zicos CredentialId')
+     ])
+   ])
+	try {
+if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Started: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}].")
+			}
+	stage('ZICOS-Initialization'){
+            
+			if (params.CALLED_BY != 'ZICOS')
+            {
+                withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "${param.ZICOS_CREDENTIAL_ID}",
+                    usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD']]) {
+                        def url = "${JENKINS_URL}".substring(0, "${JENKINS_URL}".length() - 1)
+                        sh "curl --user $USERNAME:$PASSWORD -X GET ${params.URL}/pipeline/execution?url=${url}'&'jobName=${JOB_NAME}"
+					}
+            }
+        }
+		} catch (e) {
+			// If there was an exception thrown, the build failed.
+			currentBuild.result = "FAILED"
+			if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [ZICOS-Initialization]")
+			}
+			if (params.EMAIL_LIST?.trim())
+			{
+			notifyFailedBuild('ZICOS-Initialization')
+			}
+			cleanup()
+			throw e
+			}
+	try {		
+  stage('Build image') {
+  
+		checkout(	[$class                          : 'GitSCM',
+				  branches                         : [[name: '*/master']],
+				  doGenerateSubmoduleConfigurations: false,
+				  extensions                       : [],
+				  submoduleCfg                     : [],
+				  userRemoteConfigs                : [[credentialsId: "${params.GIT_CREDENTIAL_ID}",
+				  url          					   : "${params.GIT_URL}"]]])
+			 
+        
+		app = docker.build("${params.DOCKER_IMAGE_NAME}:${params.DOCKER_TAG}")
+    }
+	} catch (e) {
+			// If there was an exception thrown, the build failed.
+			currentBuild.result = "FAILED"
+			if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Build image]")
+			}
+			if (params.EMAIL_LIST?.trim())
+			{
+			notifyFailedBuild('Build image')
+			}
+			cleanup()
+			throw e
+			}
+	
+		try {
+			
+		//Push the image into Docker hub	
+  stage('Push image') {
+        
+		docker.withRegistry("${params.DOCKERHUB_URL}", "${params.DOCKERHUB_CREDENTIAL_ID}") {
+            app.push("${env.BUILD_NUMBER}")//tag the image with the current build no.
+            app.push("${params.DOCKER_TAG}") // tag the image with the param tag
+			}
+		}
+		} catch (e) {
+			// If there was an exception thrown, the build failed
+			currentBuild.result = "FAILED"
+			if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Push image]")
+			}
+			if (params.EMAIL_LIST?.trim())
+			{
+			notifyFailedBuild('Push image')
+			}
+			cleanup()
+			throw e
+			}
+			
+		try {
+ stage('Create Bridge') {
+			sh """
+			docker network create --driver bridge spadelite${env.BUILD_NUMBER}
+			"""
+			}
+		} catch (e) {
+			// If there was an exception thrown, the build failed
+			currentBuild.result = "FAILED"
+			if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Create Bridge]")
+			}
+			if (params.EMAIL_LIST?.trim())
+			{
+			notifyFailedBuild('Create Bridge')
+			}
+			cleanup()
+			throw e
+			}
+			
+//Pull the image from Docker hub.			
+			docker.withRegistry("${params.DOCKERHUB_URL}", "${params.DOCKERHUB_CREDENTIAL_ID}") {
+             docker.image("${params.DOCKER_IMAGE_NAME}:${params.DOCKER_TAG}").inside("--net spadelite${env.BUILD_NUMBER} -u root -d --publish 6000:6000") 
+			 {
+			  try {
+				
+ stage('Checkout code'){
+			 // checkout the code 
+		checkout(	[$class                          : 'GitSCM',
+				  branches                         : [[name: '*/master']],
+				  doGenerateSubmoduleConfigurations: false,
+				  extensions                       : [],
+				  submoduleCfg                     : [],
+				  userRemoteConfigs                : [[credentialsId: "${params.GIT_CREDENTIAL_ID}",
+				  url          					   : "${params.GIT_URL}"]]])
+			 }
+			} catch (e) {
+			// If there was an exception thrown, the build failed
+			currentBuild.result = "FAILED"
+			if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Checkout code]")
+			}
+			if (params.EMAIL_LIST?.trim())
+			{
+			notifyFailedBuild('Checkout code')
+			}
+			cleanup()
+			throw e
+			}
+			 
+			 try {
+				
+ stage('Build NPM'){
+			 sh """
+			
+			npm install -g #Build the code using NPM
+			
+			npm install sonarqube-scanner --save-dev #install sonarqube-scanner
+			 """ 
+			 }
+			 } catch (e) {
+			// If there was an exception thrown, the build failed
+			currentBuild.result = "FAILED"
+			if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Build NPM]")
+			}
+			if (params.EMAIL_LIST?.trim())
+			{
+			notifyFailedBuild('Build NPM')
+			}
+			cleanup()
+			throw e
+			}
+			 
+			 try {
+			 			 
+ stage('Sonar Analysis'){
+	withSonarQubeEnv('sonarqube') {
+			 sh """
+			 
+			 
+			 #create the temporary .js file to execute the sonar scan.
+			 cat > sonar-project.js <<- "EOF"
+			 const sonarqubeScanner = require('sonarqube-scanner');
+			 sonarqubeScanner({
+			 serverUrl: "${params.SONARQUBE_URL}",// Sonar server url param
+			 options : {
+			'sonar.sources': '.',
+			'sonar.projectName': "${params.SONARQUBE_PROJECT_NAME}", //Name of the project which will be created in the Sonar server
+			}
+			}, () => {});
+			EOF
+			
+			node sonar-project.js //execute the sonar scan
+			rm sonar-project.js   #remove the temporary file. 
+			""" 
+			 }
+			  timeout(time: 1, unit: 'HOURS') {
+                waitForQualityGate abortPipeline: true
+              }
+			 }
+			 } catch (e) {
+			// If there was an exception thrown, the build failed
+			currentBuild.result = "FAILED"
+			if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Sonar Analysis]")
+			}
+			if (params.EMAIL_LIST?.trim())
+			{
+			notifyFailedBuild('Sonar Analysis')
+			}
+			cleanup()
+			throw e
+			}
+			
+						
+			try {
+			
+  stage('Unit testing using mocha'){
+			 sh """
+			 npm install supertest --save-dev
+			 mocha tests/test.js --reporter spec 
+			 
+			 """ 
+			 }
+			 } catch (e) {
+			// If there was an exception thrown, the build failed
+			currentBuild.result = "FAILED"
+			if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Unit testing using mocha]")
+			}
+			if (params.EMAIL_LIST?.trim())
+			{
+			notifyFailedBuild('Unit testing using mocha')
+			}
+			cleanup()
+			throw e
+			}
+			
+			try {		 
+  stage('Push artifacts to Artifactory'){
+			sh """
+			touch ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz
+			tar --exclude='./node_modules' --exclude='./.scannerwork' --exclude='./.git' --exclude='./.gitignore' --exclude=${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz -zcvf ${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz .
+			"""
+			withCredentials([usernamePassword(credentialsId: "${params.JFROG_CREDENTIAL_ID}", usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+				 sh """
+				 curl -u "${USERNAME}":"${PASSWORD}" -X PUT "${params.JFROG_URL}" -T "./${env.JOB_NAME}${env.BUILD_NUMBER}.tar.gz"
+				 """
+				}
+			if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Success: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}]")
+			}
+			if (params.EMAIL_LIST?.trim())
+			{
+			notifySuccessBuild()
+			}
+			
+			 }
+			 
+			 } catch (e) {
+			// If there was an exception thrown, the build failed
+			currentBuild.result = "FAILED"
+			if(params.SLACK_API_URL?.trim() && params.SLACK_TOKEN?.trim() && params.SLACK_CHANNEL_NAME?.trim())
+			{
+			notifySlack(params.SLACK_API_URL,params.SLACK_CHANNEL_NAME,params.SLACK_TOKEN,"Build Failed: Job ${env.JOB_NAME} [${env.BUILD_NUMBER}] Failed stage: [Push artifacts to Artifactory]")
+			}
+			if (params.EMAIL_LIST?.trim())
+			{
+			notifyFailedBuild('Push artifacts to Artifactory')
+			}
+			cleanup()
+			throw e
+			} 
+			
+          }
+         }
+  
+  }     
+
+  // function to handle the Slack notification.
+  def notifySlack(String slackUrl,String slackChannel,String slackToken,String message) {
+		sh """
+		curl -X POST -H 'Authorization: Bearer ${slackToken}' \
+		-H 'Content-type: application/json' \
+		--data '{"username":"ZICOS","channel":"${slackChannel}","text": "${message}"}' \
+		${slackUrl}
+		"""
+		}
+		
+// function to handle the failed build notification.
+		def notifyFailedBuild(String stage) {
+		
+		emailext(
+		  to: "${params.EMAIL_LIST}",
+		  subject: "Build Failed: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+		  body: "This email is to notify that Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' has been failed. Failed stage: [${stage}]"
+		)
+		}
+		
+// function to handle successful build notification.
+		def notifySuccessBuild() {
+		
+		emailext(
+		  to: "${params.EMAIL_LIST}",
+		  subject: "Build Success: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+		  body: "This email is to notify that Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]' has been completed successfully"
+		)
+		}
+
+//function to clean docker container, volumes and network		
+		def cleanup() {
+		cleanWs() //cleanup workspace
+		sh """
+		docker ps -q -f status=exited | xargs --no-run-if-empty docker rm
+		docker images -q -f dangling=true | xargs --no-run-if-empty docker rmi
+		docker volume ls -qf dangling=true | xargs -r docker volume rm
+		docker network rm spadelite${env.BUILD_NUMBER}
+		docker network prune --force
+		"""
+		}
