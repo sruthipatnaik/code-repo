@@ -15,8 +15,8 @@ node {
 		stringParam(name: 'SONARQUBE_URL', defaultValue: '', description: 'SonarQube Url'),
 		stringParam(name: 'SONARQUBE_PROJECT_NAME', defaultValue: '', description: 'SonarQube Project Name'),
 		stringParam(name: 'JFROG_CREDENTIAL_ID', defaultValue: '', description: 'JFrog repository password'),
-		stringParam(name: 'JFROG_URL', defaultValue: '', description: 'JFrog repository URL')
-		stringParam(name: 'CALLED_BY', defaultValue: '', description: 'Called by')
+		stringParam(name: 'JFROG_URL', defaultValue: '', description: 'JFrog repository URL'),
+		stringParam(name: 'CALLED_BY', defaultValue: '', description: 'Called by'),
                 stringParam(name: 'URL', defaultValue: '',description: 'Callback URL')
      ])
    ])
